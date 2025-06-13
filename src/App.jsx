@@ -9,7 +9,7 @@ import './App.css';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/SplitItWeb/">
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/create" element={<CreateSettlementPage />} />

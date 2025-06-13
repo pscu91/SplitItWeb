@@ -237,7 +237,11 @@ const CreateResultPage = () => {
       >
         {/* 로고/발급일 */}
         <div className="mb-2 flex flex-col items-center gap-1">
-          <img className="h-12 w-auto" src="/assets/icons/logo_black.png" />
+          <img
+            className="h-12 w-auto"
+            src={import.meta.env.BASE_URL + 'assets/icons/logo_black.png'}
+            alt="black logo"
+          />
           <span className="text-xs text-[#7C7C7C]">발급일: {issuedDate}</span>
         </div>
         {/* 정산 내역 */}

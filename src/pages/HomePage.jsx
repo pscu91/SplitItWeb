@@ -55,14 +55,18 @@ const HomePage = () => {
     >
       {/* 상단 일러스트와 타이틀 */}
       <div className="mb-8 mt-10 flex w-full flex-col items-center">
-        <img src="/assets/icons/logo.svg" alt="app title" className="mb-4" />
+        <img
+          src={import.meta.env.BASE_URL + 'assets/icons/logo.svg'}
+          alt="app title"
+          className="mb-4"
+        />
         <h1 className="mb-8 text-[21px] font-bold text-[#111111]">
           더 쉽고 편한 정산
         </h1>
         <img
-          src="/assets/icons/home_illustration.svg"
+          src={import.meta.env.BASE_URL + 'assets/icons/home_illustration.svg'}
           alt="정산 일러스트"
-          className="mb-4"
+          className="w-full"
         />
       </div>
 
@@ -72,9 +76,9 @@ const HomePage = () => {
           onClick={() => alert('준비중인 기능입니다.')}
         >
           <img
-            src="/assets/icons/icon_user.svg"
-            alt="user settings"
-            className=""
+            src={import.meta.env.BASE_URL + 'assets/icons/icon_user.svg'}
+            alt="user icon"
+            className="h-5 w-5"
           />
         </button>
         <button
@@ -87,7 +91,11 @@ const HomePage = () => {
           }}
           className="active:bg-[rgb(57,158,138) flex h-20 w-fit items-center justify-center gap-2 rounded-xl border-2 border-black bg-[#4DB8A9] px-12 py-3 text-lg font-semibold text-white shadow-[0px_8px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-2 active:bg-[#399e8a] active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)]"
         >
-          <img src="/assets/icons/icon_start.svg" alt="start" className="" />
+          <img
+            src={import.meta.env.BASE_URL + 'assets/icons/icon_start.svg'}
+            alt="start"
+            className=""
+          />
         </button>
       </div>
     </div>
