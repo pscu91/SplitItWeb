@@ -38,3 +38,13 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Safari input font fix */
+input {
+  -webkit-text-fill-color: currentcolor !important;
+  -webkit-opacity: 1 !important;
+  font-family: inherit !important; /* Tailwind CSS의 font-sans 등을 사용한다면 inherit으로 설정 */
+  /* 필요한 경우 추가 폰트 스무딩 속성 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

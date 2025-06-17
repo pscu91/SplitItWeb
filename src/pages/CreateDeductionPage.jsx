@@ -93,10 +93,7 @@ const CreateDeductionPage = () => {
         <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-gray-800">
           따로 정산
         </h1>
-        <button
-          onClick={handleSubmit}
-          className="text-[#4DB8A9] active:bg-transparent active:text-[#399e8a]"
-        >
+        <button onClick={handleSubmit} className="text-[#4DB8A9]">
           다음
         </button>
       </header>

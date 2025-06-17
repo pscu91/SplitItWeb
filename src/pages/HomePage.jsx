@@ -66,7 +66,7 @@ const HomePage = () => {
         <img
           src={import.meta.env.BASE_URL + 'assets/icons/home_illustration.svg'}
           alt="정산 일러스트"
-          className="w-full"
+          className="mb-4"
         />
       </div>
 
@@ -78,7 +78,7 @@ const HomePage = () => {
           <img
             src={import.meta.env.BASE_URL + 'assets/icons/icon_user.svg'}
             alt="user icon"
-            className="h-5 w-5"
+            className=""
           />
         </button>
         <button

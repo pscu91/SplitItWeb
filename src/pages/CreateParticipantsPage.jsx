@@ -225,7 +225,7 @@ const CreateParticipantsPage = () => {
         <button
           type="submit"
           form="participants-form"
-          className={`text-[#4DB8A9] active:bg-transparent active:text-[#399e8a] ${!hasOtherParticipants ? 'cursor-not-allowed opacity-40' : ''}`}
+          className={`text-[#4DB8A9] ${!hasOtherParticipants ? 'cursor-not-allowed opacity-40' : ''}`}
           disabled={!hasOtherParticipants}
         >
           다음
@@ -279,7 +279,7 @@ const CreateParticipantsPage = () => {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder="이름 검색 또는 엔터로 추가"
-              className="h-full w-full rounded-lg border px-4 py-4 text-sm focus:border-[#FF9EAB] focus:outline-none focus:ring-0"
+              className="h-full w-full rounded-lg border px-4 py-4 text-sm focus:border-[#4DB8A9] focus:outline-none focus:ring-0 focus:ring-[#4DB8A9]"
               style={{ minWidth: 120 }}
             />
             <FontAwesomeIcon
@@ -290,7 +290,7 @@ const CreateParticipantsPage = () => {
           <button
             type="button"
             onClick={handleAddFromSearch}
-            className={`border-1 flex h-full w-auto items-center justify-center border-gray-600 bg-[#FF9EAB] text-white transition ${search.trim() === '' ? 'cursor-not-allowed opacity-40' : 'hover:bg-[#ffb9c7]'}`}
+            className={`border-1 flex h-full w-auto items-center justify-center border-gray-600 bg-[#4DB8A9] text-white transition ${search.trim() === '' ? 'cursor-not-allowed opacity-40' : 'focus:bg-[#3ca393]'}`}
             aria-label="추가"
             disabled={search.trim() === ''}
           >
@@ -344,7 +344,7 @@ const CreateParticipantsPage = () => {
                     key={name}
                     type="button"
                     onClick={handleClick}
-                    className={`border-1 flex w-full cursor-pointer items-center justify-between rounded-lg border-gray-600 px-4 py-3 shadow-sm transition ${isAdded ? 'bg-[#FF9EAB] text-white' : 'border-[#E5E4E0] bg-white text-[#202020] hover:bg-[#FF9EAB]/60'} `}
+                    className={`border-1 flex w-full cursor-pointer items-center justify-between rounded-lg border-gray-600 px-4 py-3 shadow-sm transition ${isAdded ? 'bg-[#4DB8A9] text-white active:bg-[#4DB8A9]' : 'border-[#E5E4E0] bg-white text-[#202020] sm:hover:bg-[#4DB8A9]/60'} `}
                     style={{ fontFamily: 'ONE-Mobile-Title, sans-serif' }}
                     disabled={isOwner}
                   >

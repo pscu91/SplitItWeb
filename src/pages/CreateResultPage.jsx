@@ -5,6 +5,7 @@ import { faXmark, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { formatCurrency } from '../utils/format';
 import { saveSettlement } from '../utils/storage';
 import html2canvas from 'html2canvas';
+import AccountModal from '../components/AccountModal';
 
 const CreateResultPage = () => {
   const navigate = useNavigate();
@@ -25,6 +26,11 @@ const CreateResultPage = () => {
       return null;
     }
   );
+
+  const [accountInfo, setAccountInfo] = useState(
+    'XX은행 000-0000-000000 홍길동'
+  );
+  const [showAccountModal, setShowAccountModal] = useState(false);
 
   const receiptRef = useRef(null);
 
@@ -121,25 +127,23 @@ const CreateResultPage = () => {
 
   const updatedParticipants = calculateAmounts();
 
-  const handleComplete = () => {
-    const settlement = {
-      title,
-      amount: fixedTotalAmount,
-      participants: updatedParticipants,
-      accountInfo: '신한은행 110-332-233244 토마토',
-    };
-    saveSettlement(settlement);
-    localStorage.removeItem('calculatedResult');
-    localStorage.removeItem('fixedTotalAmount');
-    localStorage.removeItem('deductionItems');
-    navigate('/');
-  };
-
   const handleCopyAccount = () => {
-    const accountInfo = '신한은행 110-332-233244 토마토';
     navigator.clipboard.writeText(accountInfo).then(() => {
       alert('계좌번호가 복사되었습니다.');
     });
+  };
+
+  const handleEditAccountInfo = () => {
+    setShowAccountModal(true);
+  };
+
+  const handleSaveAccountInfo = (newInfo) => {
+    setAccountInfo(newInfo);
+    setShowAccountModal(false);
+  };
+
+  const handleCloseAccountModal = () => {
+    setShowAccountModal(false);
   };
 
   const handleShareReceipt = async () => {
@@ -147,6 +151,13 @@ const CreateResultPage = () => {
       alert('영수증을 찾을 수 없습니다.');
       return;
     }
+
+    // User Agent를 기반으로 모바일 장치 여부 확인
+    const isMobile =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
+    const isDesktop = !isMobile;
 
     try {
       const canvas = await html2canvas(receiptRef.current, {
@@ -160,8 +171,18 @@ const CreateResultPage = () => {
       const day = String(now.getDate()).padStart(2, '0');
       const filename = `splitit_receipt_${year}${month}${day}.png`;
 
-      // Web Share API가 지원되는지 확인
-      if (navigator.share && navigator.canShare) {
+      // 데스크탑 브라우저일 경우 항상 이미지를 다운로드합니다.
+      // 그렇지 않으면 Web Share API가 지원되는 경우 공유를 시도하고, 아니면 다운로드로 대체합니다.
+      if (isDesktop) {
+        console.log('데스크탑 브라우저 감지, 이미지 다운로드로 대체합니다.');
+        const image = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = image;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (navigator.share) {
         const imageBlob = await new Promise((resolve) =>
           canvas.toBlob(resolve, 'image/png')
         );
@@ -169,31 +190,45 @@ const CreateResultPage = () => {
           type: 'image/png',
         });
 
-        try {
-          await navigator.share({
-            files: [imageFile],
-            title: 'Split it! 정산 영수증',
-            text: 'Split it! 앱에서 정산된 영수증입니다.',
-          });
-          console.log('Receipt shared successfully');
-        } catch (error) {
-          if (error.name === 'AbortError') {
-            console.log('Share cancelled by user');
-          } else {
-            console.error('Error sharing receipt via Web Share API:', error);
-            alert('영수증 공유에 실패했습니다. 이미지를 저장합니다.');
-            // Web Share API 실패 시 다운로드로 대체
-            const image = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.href = image;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+          try {
+            await navigator.share({
+              files: [imageFile],
+              title: 'Split it! 정산 영수증',
+              text: 'Split it! 앱에서 정산된 영수증입니다.',
+            });
+            console.log('Receipt shared successfully');
+          } catch (error) {
+            if (error.name === 'AbortError') {
+              console.log('Share cancelled by user');
+            } else {
+              console.error('Web Share API를 통한 영수증 공유 오류:', error);
+              alert('영수증 공유에 실패했습니다. 이미지를 저장합니다.');
+              // Web Share API 실패 시 다운로드로 대체
+              const image = canvas.toDataURL('image/png');
+              const link = document.createElement('a');
+              link.href = image;
+              link.download = filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
           }
+        } else {
+          // Web Share API가 파일을 공유할 수 없는 경우 다운로드로 대체
+          console.log(
+            'Web Share API cannot share this file, falling back to download.'
+          );
+          const image = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = image;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
       } else {
-        // Web Share API가 지원되지 않을 경우 다운로드로 대체
+        // Web Share API 자체가 지원되지 않을 경우 다운로드로 대체 (모바일이 아니거나 아주 오래된 브라우저)
         console.log('Web Share API not supported, falling back to download.');
         const image = canvas.toDataURL('image/png');
         const link = document.createElement('a');
@@ -204,7 +239,7 @@ const CreateResultPage = () => {
         document.body.removeChild(link);
       }
     } catch (error) {
-      console.error('Error generating receipt image:', error);
+      console.error('영수증 이미지 생성 오류:', error);
       alert('영수증 이미지 생성에 실패했습니다.');
     }
   };
@@ -218,13 +253,16 @@ const CreateResultPage = () => {
   return (
     <div className="flex flex-col bg-[#F8F7F4] sm:min-h-screen sm:p-4">
       {/* 헤더: 닫기 버튼, 중앙 타이틀 */}
-      <div className="relative mb-6 flex h-12 items-center justify-end">
+      <div
+        className="relative mb-6 flex h-12 items-center justify-end"
+        style={{ fontFamily: 'ONE-Mobile-Title, sans-serif' }}
+      >
         <span className="absolute left-1/2 -translate-x-1/2 text-[21px] font-bold text-[#202020]">
           정산 결과
         </span>
         <button
           onClick={() => navigate('/')}
-          className="flex h-10 w-10 items-center justify-center text-[#202020] active:text-red-500"
+          className="flex h-10 w-10 items-center justify-center text-[#202020] active:bg-red-500"
         >
           <FontAwesomeIcon icon={faXmark} className="h-6 w-6" />
         </button>
@@ -295,7 +333,7 @@ const CreateResultPage = () => {
           onClick={handleCopyAccount}
           className="flex cursor-pointer items-center justify-between rounded-lg bg-[#F8F7F4] px-2 py-3 text-[#7C7C7C] transition-colors hover:text-[#4DB8A9]"
         >
-          <p className="h-fit text-[10px]">신한은행 110-332-233244 토마토</p>
+          <p className="h-fit text-[10px]">{accountInfo}</p>
           <FontAwesomeIcon icon={faCopy} className="h-auto w-3" />
         </div>
         <div className="mt-2 flex w-full flex-col text-[8px] tracking-[-.05em] text-[#7C7C7C]">
@@ -322,13 +360,22 @@ const CreateResultPage = () => {
             + 2차 추가
           </button>
           <button
-            onClick={() => navigate('/create')}
+            onClick={handleEditAccountInfo}
             className="flex-1 rounded-lg border border-[#202020] bg-[#343434] py-2 text-base font-bold text-[#F1F1F1] shadow shadow-[0px_6px_0px_0px_rgba(0,0,0,1)] transition hover:bg-[#222] active:translate-y-2 active:bg-gray-900 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)]"
           >
-            새 정산
+            계좌 정보 수정
           </button>
         </div>
       </div>
+
+      {showAccountModal && (
+        <AccountModal
+          show={showAccountModal}
+          onClose={handleCloseAccountModal}
+          onSave={handleSaveAccountInfo}
+          initialAccountInfo={accountInfo}
+        />
+      )}
     </div>
   );
 };
