@@ -28,7 +28,7 @@ const CreateResultPage = () => {
   );
 
   const [accountInfo, setAccountInfo] = useState(
-    'XX은행 000-0000-000000 홍길동'
+    localStorage.getItem('accountInfo') || 'XX은행 000-0000-000000 홍길동'
   );
   const [showAccountModal, setShowAccountModal] = useState(false);
 

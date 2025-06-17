@@ -30,6 +30,7 @@ const AccountModal = ({ show, onClose, onSave, initialAccountInfo }) => {
   }
 
   const handleSave = () => {
+    localStorage.setItem('accountInfo', currentAccountInfo); // 계좌 정보 저장
     onSave(currentAccountInfo);
     onClose();
   };
