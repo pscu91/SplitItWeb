@@ -40,3 +40,12 @@ export const deleteSettlement = (id) => {
   );
   localStorage.setItem(SETTLEMENTS_KEY, JSON.stringify(updatedSettlements));
 };
+
+// 계좌 정보 저장 및 불러오기
+export function getAccountInfo() {
+  return localStorage.getItem('accountInfo') || '계좌 정보를 등록하세요.';
+}
+
+export function setAccountInfo(info) {
+  localStorage.setItem('accountInfo', info);
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { setAccountInfo } from '../utils/storage';
 
 const AccountModal = ({ show, onClose, onSave, initialAccountInfo }) => {
   const [currentAccountInfo, setCurrentAccountInfo] =
@@ -30,7 +31,7 @@ const AccountModal = ({ show, onClose, onSave, initialAccountInfo }) => {
   }
 
   const handleSave = () => {
-    localStorage.setItem('accountInfo', currentAccountInfo); // 계좌 정보 저장
+    setAccountInfo(currentAccountInfo); // 계좌 정보 저장
     onSave(currentAccountInfo);
     onClose();
   };

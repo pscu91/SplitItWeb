@@ -7,16 +7,25 @@ import { formatNumber } from '../utils/format';
 const CreateSettlementPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { title: initialTitle, amount: initialAmount } = location.state || {};
+  const {
+    settlements = [],
+    title: initialTitle,
+    amount: initialAmount,
+    participants: prevParticipants,
+  } = location.state || {};
 
-  const [title, setTitle] = useState(initialTitle || '');
+  const isNth = settlements.length > 0;
+  const nthLabel = isNth
+    ? `${settlements.length + 1}차 정산 만들기`
+    : '새 정산 만들기';
+
+  const [title, setTitle] = useState(isNth ? '' : initialTitle || '');
   const [amount, setAmount] = useState(() => {
-    // 이미 저장된 총액이 있으면 그것을 사용
+    if (isNth) return '';
     const savedAmount = localStorage.getItem('fixedTotalAmount');
     if (savedAmount) {
       return savedAmount;
     }
-    // 없으면 초기값 사용
     return initialAmount || '';
   });
   const [isTitleFocused, setIsTitleFocused] = useState(false);
@@ -38,8 +47,10 @@ const CreateSettlementPage = () => {
     localStorage.setItem('fixedTotalAmount', amount);
     navigate('/create/participants', {
       state: {
+        settlements,
         title,
         amount,
+        participants: prevParticipants,
       },
     });
   };
@@ -66,11 +77,16 @@ const CreateSettlementPage = () => {
   };
 
   const handleBack = () => {
-    // 모든 임시 데이터 초기화
-    localStorage.removeItem('deductionItems');
-    localStorage.removeItem('fixedTotalAmount');
-    localStorage.removeItem('calculatedResult');
-    navigate('/');
+    // n차 추가 플로우일 때는 result로, 최초 플로우일 때는 홈으로 이동
+    if (isNth) {
+      navigate('/create/result', { state: { settlements } });
+    } else {
+      // 모든 임시 데이터 초기화
+      localStorage.removeItem('deductionItems');
+      localStorage.removeItem('fixedTotalAmount');
+      localStorage.removeItem('calculatedResult');
+      navigate('/');
+    }
   };
 
   // 금액이 0 또는 빈 값이면 다음 버튼 비활성화
@@ -89,7 +105,7 @@ const CreateSettlementPage = () => {
             className="h-6 w-6 cursor-pointer p-2 text-black active:text-blue-500 lg:hover:text-blue-500"
           />
           <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-gray-800">
-            새 정산 만들기
+            {nthLabel}
           </h1>
           <button
             type="submit"

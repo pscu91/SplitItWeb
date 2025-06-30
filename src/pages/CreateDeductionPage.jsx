@@ -8,8 +8,12 @@ import DeductionModal from '../components/DeductionModal';
 const CreateDeductionPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { title, participants } = location.state || {};
-  const amount = parseInt(localStorage.getItem('fixedTotalAmount')) || 0;
+  const {
+    settlements = [],
+    title,
+    amount,
+    participants,
+  } = location.state || {};
 
   // participants가 없으면 홈으로 이동 (뒤로가기 등 비정상 진입 방지)
   React.useEffect(() => {
@@ -21,12 +25,10 @@ const CreateDeductionPage = () => {
   const [deductionItems, setDeductionItems] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 컴포넌트가 마운트될 때 로컬 스토리지에서 deductionItems 불러오기
+  // 컴포넌트가 마운트될 때 deductionItems는 항상 빈 배열로 시작 (n차 추가 시 이전 차수의 항목을 들고오지 않음)
   useEffect(() => {
-    const storedItems =
-      JSON.parse(localStorage.getItem('deductionItems')) || [];
-    setDeductionItems(storedItems);
-  }, []);
+    setDeductionItems([]);
+  }, [title, amount, participants]);
 
   const addDeductionItem = (item) => {
     const updatedItems = [...deductionItems, item];
@@ -44,30 +46,27 @@ const CreateDeductionPage = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!participants || !Array.isArray(participants)) return;
-
-    // Create a new array for participants with their specific deduction items
     const participantsWithDeductions = participants.map(
       (participant, participantIndex) => {
         const specificDeductionItems = deductionItems
           .filter((item) => item.selectedParticipants[participantIndex])
-          .map((item) => ({ name: item.name, amount: item.amount })); // Store name and amount
-
+          .map((item) => ({ name: item.name, amount: item.amount }));
         return {
           ...participant,
-          // The 'amount: -1' flag is no longer needed in this new logic as finalAmount will be calculated directly
-          // The old deductionItems array for display in CreateResultPage will now be filtered based on 'deductionsExemptFrom'
-          deductionsExemptFrom: specificDeductionItems, // New property for calculation logic
-          deductionItems: specificDeductionItems.map((d) => d.name), // For display in CreateResultPage
+          deductionsExemptFrom: specificDeductionItems,
+          deductionItems: specificDeductionItems.map((d) => d.name),
         };
       }
     );
-
+    const newSettlement = {
+      title,
+      amount,
+      participants: participantsWithDeductions,
+      deductionItems,
+    };
     navigate('/create/result', {
       state: {
-        title,
-        amount, // 고정된 총액 전달
-        participants: participantsWithDeductions, // Pass the updated participants
-        deductionItems, // Still pass all deduction items for global context if needed in CreateResultPage
+        settlements: [...settlements, newSettlement],
       },
     });
   };

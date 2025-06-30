@@ -80,26 +80,16 @@ const CreateParticipantsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const {
+    settlements = [],
     title,
+    amount,
     participants: initialParticipants,
     deductionItems,
   } = location.state || {};
 
-  const amount = parseInt(localStorage.getItem('fixedTotalAmount')) || 0;
-
-  // localStorage에서 participants 불러오기, 없으면 state/기본값 사용
-  const getInitialParticipants = () => {
-    const stored = localStorage.getItem(PARTICIPANTS_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return initialParticipants || [{ name: '정산자', paid: false }];
-  };
-
-  const [participants, setParticipants] = useState(getInitialParticipants);
+  const [participants, setParticipants] = useState(
+    initialParticipants || [{ name: '정산자', paid: false }]
+  );
   const [lastAddedIndex, setLastAddedIndex] = useState(null);
   const [recentMembers, setRecentMembers] = useState(getRecentMembers());
   const [search, setSearch] = useState('');
@@ -127,7 +117,9 @@ const CreateParticipantsPage = () => {
     e.preventDefault();
     navigate('/create/deduction', {
       state: {
+        settlements,
         title,
+        amount,
         participants,
         deductionItems,
       },
