@@ -42,6 +42,7 @@ const CreateResultPage = () => {
   const [accountInfo, setAccountInfo] = useState(getAccountInfo());
   const [showAccountModal, setShowAccountModal] = useState(false);
   const receiptRef = useRef(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   // 차수별 정산 결과 계산 함수
   const calculateAmounts = (settlement) => {
@@ -130,7 +131,7 @@ const CreateResultPage = () => {
   };
   const handleSaveAccountInfo = (newInfo) => {
     setAccountInfo(newInfo);
-    setShowAccountModal(false);
+    setShowAccountInfo(false);
   };
   const handleCloseAccountModal = () => {
     setShowAccountModal(false);
@@ -142,6 +143,8 @@ const CreateResultPage = () => {
       alert('영수증을 찾을 수 없습니다.');
       return;
     }
+    setIsSharing(true);
+    await new Promise((r) => setTimeout(r, 10)); // 렌더링 보장
     const isMobile =
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
         navigator.userAgent
@@ -220,6 +223,8 @@ const CreateResultPage = () => {
     } catch (error) {
       alert('영수증 이미지 생성에 실패했습니다.');
       console.error('html2canvas error:', error);
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -245,11 +250,11 @@ const CreateResultPage = () => {
     return allSettlements
       .map((settlement, idx) => {
         const p = settlement.participants.find((p) => p.name === name);
-        if (
-          !p ||
-          !p.deductionsExemptFrom ||
-          p.deductionsExemptFrom.length === 0
-        )
+        if (!p) {
+          // 아예 빠진 차수
+          return { round: idx + 1, items: '불참' };
+        }
+        if (!p.deductionsExemptFrom || p.deductionsExemptFrom.length === 0)
           return null;
         // 항목명(여러개) 리스트
         const items = p.deductionsExemptFrom.map((d) => d.name).join(', ');
@@ -296,6 +301,12 @@ const CreateResultPage = () => {
     new Set(allSettlements.flatMap((s) => s.participants.map((p) => p.name)))
   );
 
+  // 계좌 정보 등록 여부 판별
+  const isAccountRegistered =
+    accountInfo &&
+    accountInfo.trim() !== '' &&
+    accountInfo !== '계좌 정보를 등록하세요.';
+
   return (
     <div className="flex flex-col bg-[#F8F7F4] sm:min-h-screen sm:p-4">
       {/* 헤더: 닫기 버튼, 중앙 타이틀 */}
@@ -333,13 +344,13 @@ const CreateResultPage = () => {
             {allSettlements.map((settlement, idx) => (
               <div
                 key={idx}
-                className="mx-1 flex items-center gap-2 text-[13px]"
+                className="mx-1 flex items-center gap-1 text-[13px]"
               >
                 <span
-                  className={`inline-block h-3 w-3 rounded-full ${roundColors[idx % roundColors.length]}`}
+                  className={`inline-block h-2 w-2 rounded-full ${roundColors[idx % roundColors.length]}`}
                 ></span>
                 <span>{settlement.title}</span>
-                <span className="ml-auto flex items-end gap-1 text-xs text-[#202020]">
+                <span className="ml-auto flex gap-1 text-xs text-[#202020]">
                   <span className="mb-0.5 text-[10px]">₩</span>
                   {formatCurrency(settlement.amount)}
                 </span>
@@ -384,13 +395,17 @@ const CreateResultPage = () => {
           </p>
         </div>
         {/* 계좌번호 */}
-        <div
-          className="mt-4 flex cursor-pointer items-center justify-between rounded-lg bg-[#F8F7F4] px-2 py-3 text-[#7C7C7C] transition-colors hover:text-[#4DB8A9]"
-          onClick={handleCopyAccount}
-        >
-          <p className="h-fit text-[10px]">{accountInfo}</p>
-          <FontAwesomeIcon icon={faCopy} className="h-auto w-3" />
-        </div>
+        {isAccountRegistered && (
+          <div
+            className={`mt-4 flex cursor-pointer items-center rounded-lg bg-[#F8F7F4] px-2 py-3 text-[#7C7C7C] transition-colors hover:text-[#4DB8A9] ${!isSharing ? 'justify-between' : 'justify-center'}`}
+            onClick={handleCopyAccount}
+          >
+            <p className="h-fit w-fit text-center text-[10px]">{accountInfo}</p>
+            {!isSharing && (
+              <FontAwesomeIcon icon={faCopy} className="h-auto w-3" />
+            )}
+          </div>
+        )}
       </div>
       {/* 하단 버튼/카피라이트 */}
       <div className="mx-auto mt-6 flex w-full max-w-[330px] flex-col gap-4">
@@ -411,7 +426,7 @@ const CreateResultPage = () => {
             onClick={handleEditAccountInfo}
             className="flex-1 rounded-lg border border-[#202020] bg-[#343434] py-2 text-base font-bold text-[#F1F1F1] shadow shadow-[0px_6px_0px_0px_rgba(0,0,0,1)] transition hover:bg-[#222] active:translate-y-2 active:bg-gray-900 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)]"
           >
-            계좌 정보 수정
+            {isAccountRegistered ? '계좌 정보 수정' : '계좌 정보 등록'}
           </button>
         </div>
       </div>
