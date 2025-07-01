@@ -1,8 +1,32 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import { formatNumber } from '../utils/format';
+
+// 헤더 컴포넌트 분리
+const PageHeader = ({ onBack, title, isNextDisabled }) => (
+  <header
+    className="mb-6 flex items-center justify-between"
+    style={{ fontFamily: 'ONE-Mobile-Title, sans-serif' }}
+  >
+    <FontAwesomeIcon
+      onClick={onBack}
+      icon={faChevronLeft}
+      className="h-6 w-6 cursor-pointer p-2 text-black active:text-blue-500 lg:hover:text-blue-500"
+    />
+    <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-gray-800">
+      {title}
+    </h1>
+    <button
+      type="submit"
+      className={`text-[#4DB8A9] active:bg-[#4DB8A9] active:text-white ${isNextDisabled ? 'cursor-not-allowed opacity-40' : ''}`}
+      disabled={isNextDisabled}
+    >
+      다음
+    </button>
+  </header>
+);
 
 const CreateSettlementPage = () => {
   const navigate = useNavigate();
@@ -23,9 +47,7 @@ const CreateSettlementPage = () => {
   const [amount, setAmount] = useState(() => {
     if (isNth) return '';
     const savedAmount = localStorage.getItem('fixedTotalAmount');
-    if (savedAmount) {
-      return savedAmount;
-    }
+    if (savedAmount) return savedAmount;
     return initialAmount || '';
   });
   const [isTitleFocused, setIsTitleFocused] = useState(false);
@@ -41,28 +63,31 @@ const CreateSettlementPage = () => {
     }
   }, []);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!amount || amount === '0') return; // 0 또는 빈 값이면 진행 불가
-    localStorage.setItem('fixedTotalAmount', amount);
-    navigate('/create/participants', {
-      state: {
-        settlements,
-        title,
-        amount,
-        participants: prevParticipants,
-      },
-    });
-  };
+  const handleSubmit = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (!amount || amount === '0') return;
+      localStorage.setItem('fixedTotalAmount', amount);
+      navigate('/create/participants', {
+        state: {
+          settlements,
+          title,
+          amount,
+          participants: prevParticipants,
+        },
+      });
+    },
+    [amount, navigate, settlements, title, prevParticipants]
+  );
 
-  const handleAmountChange = (e) => {
+  const handleAmountChange = useCallback((e) => {
     const value = e.target.value.replace(/,/g, '');
     if (value === '' || /^\d+$/.test(value)) {
       setAmount(value);
     }
-  };
+  }, []);
 
-  const handleAmountFocus = () => {
+  const handleAmountFocus = useCallback(() => {
     if (!amount) {
       setAmount('0');
       setTimeout(() => {
@@ -74,48 +99,29 @@ const CreateSettlementPage = () => {
       }, 0);
     }
     lastFocusedInputRef.current = amountInputRef.current;
-  };
+  }, [amount]);
 
-  const handleBack = () => {
-    // n차 추가 플로우일 때는 result로, 최초 플로우일 때는 홈으로 이동
+  const handleBack = useCallback(() => {
     if (isNth) {
       navigate('/create/result', { state: { settlements } });
     } else {
-      // 모든 임시 데이터 초기화
       localStorage.removeItem('deductionItems');
       localStorage.removeItem('fixedTotalAmount');
       localStorage.removeItem('calculatedResult');
       navigate('/');
     }
-  };
+  }, [isNth, navigate, settlements]);
 
-  // 금액이 0 또는 빈 값이면 다음 버튼 비활성화
   const isNextDisabled = !amount || amount === '0';
 
   return (
     <div className="flex flex-col bg-[#F8F7F4] sm:min-h-screen sm:p-4">
       <form onSubmit={handleSubmit}>
-        <header
-          className="mb-6 flex items-center justify-between"
-          style={{ fontFamily: 'ONE-Mobile-Title, sans-serif' }}
-        >
-          <FontAwesomeIcon
-            onClick={handleBack}
-            icon={faChevronLeft}
-            className="h-6 w-6 cursor-pointer p-2 text-black active:text-blue-500 lg:hover:text-blue-500"
-          />
-          <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-gray-800">
-            {nthLabel}
-          </h1>
-          <button
-            type="submit"
-            className={`text-[#4DB8A9] active:bg-[#4DB8A9] active:text-white ${isNextDisabled ? 'cursor-not-allowed opacity-40' : ''}`}
-            disabled={isNextDisabled}
-          >
-            다음
-          </button>
-        </header>
-
+        <PageHeader
+          onBack={handleBack}
+          title={nthLabel}
+          isNextDisabled={isNextDisabled}
+        />
         <div className="flex flex-col items-center">
           <div
             className="flex w-full flex-col gap-6 rounded-xl bg-white p-6 shadow"

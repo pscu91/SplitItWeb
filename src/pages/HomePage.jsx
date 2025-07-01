@@ -1,9 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../utils/format';
 import { getSettlements } from '../utils/storage';
 import guide01 from '/assets/guide01.png';
 import guide02 from '/assets/guide02.png';
+
+// 도움말 모달 컴포넌트 분리
+const GuideModal = ({ show, onClose }) => {
+  if (!show) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#F8F7F450]"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-h-[90vh] w-[100vw] max-w-3xl overflow-y-auto rounded-xl bg-[#F8F7F4]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[#4DB8A9] p-2 text-lg font-bold text-[#fff] active:bg-[#399e8a]"
+          onClick={onClose}
+        >
+          <span aria-label="닫기">×</span>
+        </button>
+        <div className="mt-6 flex flex-col items-center">
+          <p className="my-2 text-xl">채원이는 정산이 필요해!</p>
+          <img src={guide01} alt="가이드1" className="w-full rounded-lg" />
+          <img src={guide02} alt="가이드2" className="w-full rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -11,30 +39,23 @@ const HomePage = () => {
   const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
-    // Home 진입 시 참여자 flow 데이터도 초기화
     localStorage.removeItem('flowParticipants');
-
-    const loadSettlements = () => {
-      const data = getSettlements();
-      setSettlements(data);
-    };
-
+    const loadSettlements = () => setSettlements(getSettlements());
     loadSettlements();
     window.addEventListener('focus', loadSettlements);
     return () => window.removeEventListener('focus', loadSettlements);
   }, []);
 
-  // 모달 열릴 때 뒷배경 스크롤 막기
   useEffect(() => {
-    if (showGuide) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = showGuide ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
   }, [showGuide]);
+
+  // 도움말 모달 열기/닫기 핸들러
+  const handleOpenGuide = useCallback(() => setShowGuide(true), []);
+  const handleCloseGuide = useCallback(() => setShowGuide(false), []);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -93,12 +114,10 @@ const HomePage = () => {
           <img
             src={import.meta.env.BASE_URL + 'assets/icons/icon_user.svg'}
             alt="user icon"
-            className=""
           />
         </button>
         <button
           onClick={() => {
-            // 모든 임시 데이터 초기화
             localStorage.removeItem('deductionItems');
             localStorage.removeItem('fixedTotalAmount');
             localStorage.removeItem('calculatedResult');
@@ -109,7 +128,6 @@ const HomePage = () => {
           <img
             src={import.meta.env.BASE_URL + 'assets/icons/icon_start.svg'}
             alt="start"
-            className=""
           />
         </button>
       </div>
@@ -117,35 +135,13 @@ const HomePage = () => {
       {/* 하단 도움말 버튼 */}
       <button
         className="mt-16 rounded-none border-0 border-b-4 border-[#4db8aa] bg-transparent p-0 text-base font-bold shadow-none"
-        onClick={() => setShowGuide(true)}
+        onClick={handleOpenGuide}
       >
-        <p className="">어떤 때에 사용하나요?</p>
+        <p>어떤 때에 사용하나요?</p>
       </button>
 
       {/* 도움말 모달 */}
-      {showGuide && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#F8F7F450]"
-          onClick={() => setShowGuide(false)}
-        >
-          <div
-            className="relative max-h-[90vh] w-[100vw] max-w-3xl overflow-y-auto rounded-xl bg-[#F8F7F4]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[#4DB8A9] p-2 text-lg font-bold text-[#fff] active:bg-[#399e8a]"
-              onClick={() => setShowGuide(false)}
-            >
-              <span aria-label="닫기">×</span>
-            </button>
-            <div className="mt-6 flex flex-col items-center">
-              <p className="my-2 text-xl">채원이는 정산이 필요해!</p>
-              <img src={guide01} alt="가이드1" className="w-full rounded-lg" />
-              <img src={guide02} alt="가이드2" className="w-full rounded-lg" />
-            </div>
-          </div>
-        </div>
-      )}
+      <GuideModal show={showGuide} onClose={handleCloseGuide} />
     </div>
   );
 };

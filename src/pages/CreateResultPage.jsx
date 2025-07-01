@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faCopy } from '@fortawesome/free-solid-svg-icons';
@@ -11,10 +11,143 @@ import {
 import html2canvas from 'html2canvas';
 import AccountModal from '../components/AccountModal';
 
+// ===== 유틸 함수 분리 =====
+const calculateAmounts = (settlement) => {
+  const { participants, deductionItems, amount } = settlement;
+  if (!participants || !deductionItems) return [];
+  const numParticipants = participants.length;
+  let result = participants.map((p) => ({ ...p, finalAmount: 0 }));
+  deductionItems.forEach((deductionItem) => {
+    const nonExempt = participants.filter(
+      (p) =>
+        !(
+          p.deductionsExemptFrom &&
+          p.deductionsExemptFrom.some(
+            (d) =>
+              d.name === deductionItem.name && d.amount === deductionItem.amount
+          )
+        )
+    );
+    if (nonExempt.length > 0) {
+      const share = deductionItem.amount / nonExempt.length;
+      result = result.map((p) =>
+        nonExempt.some((np) => np.name === p.name)
+          ? { ...p, finalAmount: p.finalAmount + share }
+          : p
+      );
+    }
+  });
+  const totalDeduction = deductionItems.reduce(
+    (sum, item) => sum + item.amount,
+    0
+  );
+  let commonAmount = amount - totalDeduction;
+  if (commonAmount < 0) commonAmount = 0;
+  const baseCost = numParticipants > 0 ? commonAmount / numParticipants : 0;
+  result = result.map((p) => ({ ...p, finalAmount: p.finalAmount + baseCost }));
+  let sumAmounts = result.reduce((sum, p) => sum + p.finalAmount, 0);
+  let diff = amount - Math.round(sumAmounts);
+  for (let i = 0; i < Math.abs(diff); i++) {
+    if (diff > 0) result[i].finalAmount += 1;
+    else if (diff < 0) result[i].finalAmount -= 1;
+  }
+  return result.map((p) => ({
+    ...p,
+    finalAmount: Math.max(0, Math.round(p.finalAmount)),
+  }));
+};
+
+const getParticipantExcludes = (allSettlements, name) =>
+  allSettlements
+    .map((settlement, idx) => {
+      const p = settlement.participants.find((p) => p.name === name);
+      if (!p) return { round: idx + 1, items: '불참' };
+      if (!p.deductionsExemptFrom || p.deductionsExemptFrom.length === 0)
+        return null;
+      const items = p.deductionsExemptFrom.map((d) => d.name).join(', ');
+      return { round: idx + 1, items };
+    })
+    .filter(Boolean);
+
+const getParticipantTotal = (allSettlements, allNames, name) => {
+  const perRound = allSettlements.map((settlement) => {
+    const calculated = calculateAmounts(settlement);
+    const found = calculated.find((p) => p.name === name);
+    return found ? found.finalAmount : 0;
+  });
+  let total = perRound.reduce((a, b) => a + b, 0);
+  if (name === allNames[0]) {
+    const totalSum = allNames.reduce(
+      (sum, n) => sum + getParticipantTotalRaw(allSettlements, n),
+      0
+    );
+    const placeSum = allSettlements.reduce((sum, s) => sum + s.amount, 0);
+    const diff = totalSum - placeSum;
+    if (diff > 0 && diff <= 5) total -= diff;
+  }
+  return total;
+};
+const getParticipantTotalRaw = (allSettlements, name) =>
+  allSettlements.reduce((sum, settlement) => {
+    const calculated = calculateAmounts(settlement);
+    const found = calculated.find((p) => p.name === name);
+    return sum + (found ? found.finalAmount : 0);
+  }, 0);
+
+// ===== 소규모 컴포넌트 분리 =====
+const AccountInfoBox = ({ accountInfo, isSharing, onCopy }) => (
+  <div
+    className={`mt-4 flex cursor-pointer items-center rounded-lg bg-[#F8F7F4] px-2 py-3 text-[#7C7C7C] transition-colors hover:text-[#4DB8A9] ${!isSharing ? 'justify-between' : 'justify-center'}`}
+    onClick={onCopy}
+  >
+    <p className="h-fit w-fit text-center text-[10px]">{accountInfo}</p>
+    {!isSharing && <FontAwesomeIcon icon={faCopy} className="h-auto w-3" />}
+  </div>
+);
+
+const ParticipantBreakdown = ({
+  allNames,
+  allSettlements,
+  getParticipantTotal,
+  getParticipantExcludes,
+  formatCurrency,
+}) => (
+  <div className="flex flex-col divide-y divide-dashed divide-[#AFAFAF]">
+    {allNames.map((name) => (
+      <div key={name} className="flex flex-col py-3">
+        <div className="mx-1 flex items-center justify-between">
+          <span className="text-[15px] text-[#202020]">{name}</span>
+          <span className="flex items-end gap-1 text-[16px] font-bold text-[#202020]">
+            <span className="pb-1 text-[12px]">₩</span>
+            {formatCurrency(
+              getParticipantTotal(allSettlements, allNames, name)
+            )}
+          </span>
+        </div>
+        {/* 제외 항목 */}
+        {getParticipantExcludes(allSettlements, name).length > 0 && (
+          <div className="ml-1 mt-1 flex flex-col gap-0.5">
+            <span className="text-left text-[11px] text-[#7C7C7C] opacity-80">
+              제외 항목
+            </span>
+            <ul className="ml-4 list-disc text-left text-[11px] text-[#7C7C7C]">
+              {getParticipantExcludes(allSettlements, name).map((ex, i) => (
+                <li key={i}>
+                  {ex.round}차 [{ex.items}]
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+);
+
+// ===== 메인 컴포넌트 =====
 const CreateResultPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  // 여러 차수의 정산 결과를 배열로 받음
   const {
     settlements = [],
     title,
@@ -22,7 +155,6 @@ const CreateResultPage = () => {
     deductionItems,
   } = location.state || {};
 
-  // settlements가 없으면(최초 진입) 기존 단일 차수 데이터로 초기화
   const initialSettlements =
     settlements.length > 0
       ? settlements
@@ -37,79 +169,31 @@ const CreateResultPage = () => {
           ]
         : [];
 
-  const [allSettlements, setAllSettlements] =
-    React.useState(initialSettlements);
-  const [accountInfo, setAccountInfo] = useState(getAccountInfo());
+  const [allSettlements, setAllSettlements] = useState(initialSettlements);
+  const [accountInfo, setAccountInfoState] = useState(getAccountInfo());
   const [showAccountModal, setShowAccountModal] = useState(false);
   const receiptRef = useRef(null);
   const [isSharing, setIsSharing] = useState(false);
 
-  // 차수별 정산 결과 계산 함수
-  const calculateAmounts = (settlement) => {
-    const { participants, deductionItems, amount } = settlement;
-    if (!participants || !deductionItems) return [];
-    const numParticipants = participants.length;
-    let result = participants.map((p) => ({ ...p, finalAmount: 0 }));
-    deductionItems.forEach((deductionItem) => {
-      const nonExemptParticipantsForThisItem = participants.filter(
-        (p) =>
-          !(
-            p.deductionsExemptFrom &&
-            p.deductionsExemptFrom.some(
-              (d) =>
-                d.name === deductionItem.name &&
-                d.amount === deductionItem.amount
-            )
-          )
-      );
-      if (nonExemptParticipantsForThisItem.length > 0) {
-        const sharePerNonExempt =
-          deductionItem.amount / nonExemptParticipantsForThisItem.length;
-        result = result.map((p) => {
-          if (
-            nonExemptParticipantsForThisItem.some((np) => np.name === p.name)
-          ) {
-            return { ...p, finalAmount: p.finalAmount + sharePerNonExempt };
-          }
-          return p;
-        });
-      }
-    });
-    const totalDeductionAmounts = deductionItems.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
-    let commonAmountToSplit = amount - totalDeductionAmounts;
-    if (commonAmountToSplit < 0) {
-      commonAmountToSplit = 0;
-    }
-    const baseCostPerPerson =
-      numParticipants > 0 ? commonAmountToSplit / numParticipants : 0;
-    result = result.map((p) => ({
-      ...p,
-      finalAmount: p.finalAmount + baseCostPerPerson,
-    }));
-    let sumOfCalculatedAmounts = result.reduce(
-      (sum, p) => sum + p.finalAmount,
-      0
-    );
-    let difference = amount - Math.round(sumOfCalculatedAmounts);
-    for (let i = 0; i < Math.abs(difference); i++) {
-      if (difference > 0) {
-        result[i].finalAmount += 1;
-      } else if (difference < 0) {
-        result[i].finalAmount -= 1;
-      }
-    }
-    result = result.map((p) => ({
-      ...p,
-      finalAmount: Math.max(0, Math.round(p.finalAmount)),
-    }));
-    return result;
-  };
+  // 모든 참여자 이름 집합 (useMemo로 최적화)
+  const allNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          allSettlements.flatMap((s) => s.participants.map((p) => p.name))
+        )
+      ),
+    [allSettlements]
+  );
 
-  // 차수 추가 버튼 클릭 시
-  const handleAddNextSettlement = () => {
+  // 계좌 정보 등록 여부
+  const isAccountRegistered =
+    accountInfo &&
+    accountInfo.trim() !== '' &&
+    accountInfo !== '계좌 정보를 등록하세요.';
+
+  // 핸들러 함수 useCallback 최적화
+  const handleAddNextSettlement = useCallback(() => {
     const lastParticipants =
       allSettlements[allSettlements.length - 1]?.participants || [];
     navigate('/create', {
@@ -118,33 +202,36 @@ const CreateResultPage = () => {
         participants: lastParticipants,
       },
     });
-  };
+  }, [allSettlements, navigate]);
 
-  // 계좌 복사, 계좌 수정 등 기존 함수 유지
-  const handleCopyAccount = () => {
+  const handleCopyAccount = useCallback(() => {
     navigator.clipboard.writeText(accountInfo).then(() => {
       alert('계좌번호가 복사되었습니다.');
     });
-  };
-  const handleEditAccountInfo = () => {
-    setShowAccountModal(true);
-  };
-  const handleSaveAccountInfo = (newInfo) => {
-    setAccountInfo(newInfo);
-    setShowAccountInfo(false);
-  };
-  const handleCloseAccountModal = () => {
-    setShowAccountModal(false);
-  };
+  }, [accountInfo]);
 
-  // 영수증 공유 함수 복원
-  const handleShareReceipt = async () => {
+  const handleEditAccountInfo = useCallback(() => {
+    setShowAccountModal(true);
+  }, []);
+
+  const handleSaveAccountInfo = useCallback((newInfo) => {
+    setAccountInfo(newInfo);
+    setAccountInfoState(newInfo);
+    setShowAccountModal(false);
+  }, []);
+
+  const handleCloseAccountModal = useCallback(() => {
+    setShowAccountModal(false);
+  }, []);
+
+  // 영수증 공유
+  const handleShareReceipt = useCallback(async () => {
     if (!receiptRef.current) {
       alert('영수증을 찾을 수 없습니다.');
       return;
     }
     setIsSharing(true);
-    await new Promise((r) => setTimeout(r, 10)); // 렌더링 보장
+    await new Promise((r) => setTimeout(r, 10));
     const isMobile =
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
         navigator.userAgent
@@ -160,15 +247,11 @@ const CreateResultPage = () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
       const filename = `splitit_receipt_${year}${month}${day}.png`;
-
       const image = canvas.toDataURL('image/png');
-      console.log('canvas.toDataURL:', image.slice(0, 50));
-
       if (!image || image === 'data:,') {
         alert('이미지 생성에 실패했습니다. 새로고침 후 다시 시도해 주세요.');
         return;
       }
-
       if (isDesktop) {
         const link = document.createElement('a');
         link.href = image;
@@ -226,90 +309,23 @@ const CreateResultPage = () => {
     } finally {
       setIsSharing(false);
     }
-  };
+  }, [receiptRef, accountInfo]);
 
   // 오늘 날짜
   const today = new Date();
-  const issuedDate = `${today.getFullYear()}년 ${String(
-    today.getMonth() + 1
-  ).padStart(2, '0')}월 ${String(today.getDate()).padStart(2, '0')}일`;
+  const issuedDate = `${today.getFullYear()}년 ${String(today.getMonth() + 1).padStart(2, '0')}월 ${String(today.getDate()).padStart(2, '0')}일`;
 
-  // 차수명 생성 함수
-  const nthLabel = (n) => `${n + 1}차`;
-
-  // 차수별 색상/아이콘 (간단 예시)
+  // 차수별 색상
   const roundColors = [
-    'bg-[#FF9EAB]', // 1차
-    'bg-[#B6E388]', // 2차
-    'bg-[#A5C9FF]', // 3차
-    'bg-[#FFD966]', // 4차
+    'bg-[#FF9EAB]',
+    'bg-[#B6E388]',
+    'bg-[#A5C9FF]',
+    'bg-[#FFD966]',
   ];
-
-  // 참여자별로 차수별 제외 항목을 정리
-  const getParticipantExcludes = (name) => {
-    return allSettlements
-      .map((settlement, idx) => {
-        const p = settlement.participants.find((p) => p.name === name);
-        if (!p) {
-          // 아예 빠진 차수
-          return { round: idx + 1, items: '불참' };
-        }
-        if (!p.deductionsExemptFrom || p.deductionsExemptFrom.length === 0)
-          return null;
-        // 항목명(여러개) 리스트
-        const items = p.deductionsExemptFrom.map((d) => d.name).join(', ');
-        return { round: idx + 1, items };
-      })
-      .filter(Boolean);
-  };
-
-  // 참여자별 최종 금액 합산 (정산자 오차 보정 포함)
-  const getParticipantTotal = (name) => {
-    // 1. 각 차수별로 참여자별 금액 계산
-    const perRound = allSettlements.map((settlement) => {
-      const calculated = calculateAmounts(settlement);
-      const found = calculated.find((p) => p.name === name);
-      return found ? found.finalAmount : 0;
-    });
-    // 2. 전체 합계
-    let total = perRound.reduce((a, b) => a + b, 0);
-    // 3. 오차 보정: 전체 참여자 합계가 함께한 곳 합계보다 1~5원 초과 시, 정산자(첫 번째 참여자)가 손해를 보도록 조정
-    if (name === allNames[0]) {
-      const totalSum = allNames.reduce(
-        (sum, n) => sum + getParticipantTotalRaw(n),
-        0
-      );
-      const placeSum = allSettlements.reduce((sum, s) => sum + s.amount, 0);
-      const diff = totalSum - placeSum;
-      if (diff > 0 && diff <= 5) {
-        total -= diff;
-      }
-    }
-    return total;
-  };
-  // 참여자별 오차 보정 없는 합계(내부용)
-  const getParticipantTotalRaw = (name) => {
-    return allSettlements.reduce((sum, settlement) => {
-      const calculated = calculateAmounts(settlement);
-      const found = calculated.find((p) => p.name === name);
-      return sum + (found ? found.finalAmount : 0);
-    }, 0);
-  };
-
-  // 모든 참여자 이름 집합
-  const allNames = Array.from(
-    new Set(allSettlements.flatMap((s) => s.participants.map((p) => p.name)))
-  );
-
-  // 계좌 정보 등록 여부 판별
-  const isAccountRegistered =
-    accountInfo &&
-    accountInfo.trim() !== '' &&
-    accountInfo !== '계좌 정보를 등록하세요.';
 
   return (
     <div className="flex flex-col bg-[#F8F7F4] sm:min-h-screen sm:p-4">
-      {/* 헤더: 닫기 버튼, 중앙 타이틀 */}
+      {/* 헤더 */}
       <div
         className="relative mb-6 flex h-12 items-center justify-end"
         style={{ fontFamily: 'ONE-Mobile-Title, sans-serif' }}
@@ -324,7 +340,7 @@ const CreateResultPage = () => {
           <FontAwesomeIcon icon={faXmark} className="h-6 w-6" />
         </button>
       </div>
-      {/* 헤더: 로고, 발급일 */}
+      {/* 영수증 본문 */}
       <div
         className="mx-auto w-full max-w-[330px] rounded-lg border border-[#7C7C7C] bg-white px-4 pb-4 pt-6 font-elice-digital-coding shadow"
         ref={receiptRef}
@@ -358,35 +374,14 @@ const CreateResultPage = () => {
             ))}
           </div>
         </div>
-        {/* 참여자별 금액/제외항목 */}
-        <div className="flex flex-col divide-y divide-dashed divide-[#AFAFAF]">
-          {allNames.map((name, idx) => (
-            <div key={name} className="flex flex-col py-3">
-              <div className="mx-1 flex items-center justify-between">
-                <span className="text-[15px] text-[#202020]">{name}</span>
-                <span className="flex items-end gap-1 text-[16px] font-bold text-[#202020]">
-                  <span className="pb-1 text-[12px]">₩</span>
-                  {formatCurrency(getParticipantTotal(name))}
-                </span>
-              </div>
-              {/* 제외 항목 */}
-              {getParticipantExcludes(name).length > 0 && (
-                <div className="ml-1 mt-1 flex flex-col gap-0.5">
-                  <span className="text-left text-[11px] text-[#7C7C7C] opacity-80">
-                    제외 항목
-                  </span>
-                  <ul className="ml-4 list-disc text-left text-[11px] text-[#7C7C7C]">
-                    {getParticipantExcludes(name).map((ex, i) => (
-                      <li key={i}>
-                        {ex.round}차 [{ex.items}]
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        {/* 참여자별 breakdown */}
+        <ParticipantBreakdown
+          allNames={allNames}
+          allSettlements={allSettlements}
+          getParticipantTotal={getParticipantTotal}
+          getParticipantExcludes={getParticipantExcludes}
+          formatCurrency={formatCurrency}
+        />
         {/* 하단 카피라이트 */}
         <div className="mt-2 flex w-full flex-col items-center text-[8px] tracking-[-.05em] text-[#7C7C7C]">
           <p>Created by Split it! WEB</p>
@@ -396,15 +391,11 @@ const CreateResultPage = () => {
         </div>
         {/* 계좌번호 */}
         {isAccountRegistered && (
-          <div
-            className={`mt-4 flex cursor-pointer items-center rounded-lg bg-[#F8F7F4] px-2 py-3 text-[#7C7C7C] transition-colors hover:text-[#4DB8A9] ${!isSharing ? 'justify-between' : 'justify-center'}`}
-            onClick={handleCopyAccount}
-          >
-            <p className="h-fit w-fit text-center text-[10px]">{accountInfo}</p>
-            {!isSharing && (
-              <FontAwesomeIcon icon={faCopy} className="h-auto w-3" />
-            )}
-          </div>
+          <AccountInfoBox
+            accountInfo={accountInfo}
+            isSharing={isSharing}
+            onCopy={handleCopyAccount}
+          />
         )}
       </div>
       {/* 하단 버튼/카피라이트 */}

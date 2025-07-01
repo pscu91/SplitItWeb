@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { formatNumberWithCommas } from '../utils/format';
 
 const DeductionModal = ({ onClose, onAdd, participants, totalAmount }) => {
   const [name, setName] = useState('');
@@ -6,11 +7,17 @@ const DeductionModal = ({ onClose, onAdd, participants, totalAmount }) => {
   const [selectedParticipants, setSelectedParticipants] = useState(
     participants.map(() => false)
   );
+  const nameInputRef = useRef(null);
 
-  const formatNumberWithCommas = (num) => {
-    if (num === '' || isNaN(num)) return '';
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      if (nameInputRef.current) nameInputRef.current.focus();
+    }, 0);
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
 
   const isAddButtonDisabled =
     name.trim() === '' ||
@@ -19,9 +26,10 @@ const DeductionModal = ({ onClose, onAdd, participants, totalAmount }) => {
     parseInt(amount) === 0 ||
     (totalAmount !== undefined && parseInt(amount) > totalAmount);
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
+    if (isAddButtonDisabled) return;
     const item = {
-      name,
+      name: name.trim(),
       amount: parseInt(amount) || 0,
       selectedParticipants,
     };
@@ -29,20 +37,35 @@ const DeductionModal = ({ onClose, onAdd, participants, totalAmount }) => {
     setName('');
     setAmount('');
     setSelectedParticipants(participants.map(() => false));
-  };
+    if (nameInputRef.current) nameInputRef.current.focus();
+  }, [
+    name,
+    amount,
+    selectedParticipants,
+    onAdd,
+    participants,
+    isAddButtonDisabled,
+  ]);
 
-  const handleParticipantSelect = (index) => {
-    const newSelection = [...selectedParticipants];
-    newSelection[index] = !newSelection[index];
-    setSelectedParticipants(newSelection);
-  };
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'Enter') {
+        handleAdd();
+      }
+    },
+    [handleAdd, onClose]
+  );
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, []);
+  const handleParticipantSelect = useCallback(
+    (index) => {
+      const newSelection = [...selectedParticipants];
+      newSelection[index] = !newSelection[index];
+      setSelectedParticipants(newSelection);
+    },
+    [selectedParticipants]
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -53,12 +76,14 @@ const DeductionModal = ({ onClose, onAdd, participants, totalAmount }) => {
             제외 항목
           </span>
           <button
+            type="button"
             onClick={onClose}
             className="rounded px-2 py-1 text-base font-bold transition-colors active:bg-transparent active:text-red-400"
           >
             취소
           </button>
           <button
+            type="button"
             onClick={handleAdd}
             disabled={isAddButtonDisabled}
             className={`rounded px-2 py-1 text-base font-bold transition ${isAddButtonDisabled ? 'cursor-not-allowed text-gray-400' : 'text-[#4DB8A9]'}`}
@@ -74,9 +99,11 @@ const DeductionModal = ({ onClose, onAdd, participants, totalAmount }) => {
               어떤 항목인가요?
             </span>
             <input
+              ref={nameInputRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="예: 술값 등"
               className="!important w-full rounded-lg border border-[#D3D3D3] bg-white px-4 py-3 text-base text-[#202020] placeholder:text-[#7C7C7C] focus:border-[#4db8a9] focus:outline-none focus:ring-[#4db8a9]"
               maxLength={20}
@@ -98,6 +125,7 @@ const DeductionModal = ({ onClose, onAdd, participants, totalAmount }) => {
                   const rawValue = e.target.value.replace(/,/g, '');
                   setAmount(rawValue === '' ? '' : parseInt(rawValue));
                 }}
+                onKeyDown={handleKeyDown}
                 placeholder="여기에 금액을 입력..."
                 className="!important w-full rounded-lg border border-[#D3D3D3] bg-white py-3 pl-10 pr-4 text-right font-['SF_Pro'] text-base text-[#202020] placeholder:text-[#7C7C7C] focus:border-[#4db8a9] focus:outline-none focus:ring-[#4db8a9]"
                 min={0}
