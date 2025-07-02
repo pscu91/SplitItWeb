@@ -184,7 +184,7 @@ const CreateSettlementPage = () => {
                     setIsAmountFocused(true);
                   }}
                   onBlur={() => setIsAmountFocused(false)}
-                  className={`w-full rounded-lg border border-[#D3D3D3] bg-[#F8F7F4] py-3 pl-10 pr-4 text-right font-['SF_Pro'] text-base placeholder:text-[#7C7C7C] focus:border-[#4DB8A9] focus:outline-none focus:ring-[#4DB8A9] ${isAmountFocused ? 'text-[#202020]' : 'text-[#D3D3D3]'}`}
+                  className={`w-full rounded-lg border border-[#D3D3D3] bg-[#F8F7F4] py-3 pl-10 pr-4 text-right font-['SF_Pro'] text-base focus:border-[#4DB8A9] focus:outline-none focus:ring-[#4DB8A9] ${isAmountFocused ? 'text-[#202020] placeholder:text-[#7C7C7C]' : 'text-[#D3D3D3] placeholder:text-[#D3D3D3]'}`}
                   placeholder="금액을 입력하세요"
                   required
                 />
