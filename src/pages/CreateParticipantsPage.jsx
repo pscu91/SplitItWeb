@@ -119,6 +119,7 @@ const CreateParticipantsPage = () => {
   const [search, setSearch] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
   const inputRefs = useRef([]);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem(PARTICIPANTS_KEY, JSON.stringify(participants));
@@ -213,7 +214,14 @@ const CreateParticipantsPage = () => {
     if (!value) return;
     if (participants.some((p) => p.name === value)) return;
     const added = addParticipant(value);
-    if (added) setTimeout(() => setSearch(''), 0);
+    if (added) {
+      setTimeout(() => {
+        setSearch('');
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }, 0);
+    }
   }, [search, participants, addParticipant]);
 
   const handleEdit = useCallback((index) => {
@@ -287,6 +295,7 @@ const CreateParticipantsPage = () => {
         <div className="mb-4 flex items-center gap-x-2">
           <div className="relative w-full">
             <input
+              ref={searchInputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -302,6 +311,7 @@ const CreateParticipantsPage = () => {
           </div>
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleAddFromSearch}
             className={`border-1 flex h-full w-auto items-center justify-center border-gray-600 bg-[#4DB8A9] text-white transition ${search.trim() === '' ? 'cursor-not-allowed opacity-40' : 'focus:bg-[#3ca393]'}`}
             aria-label="추가"
