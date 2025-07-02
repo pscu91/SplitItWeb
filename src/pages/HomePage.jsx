@@ -4,6 +4,7 @@ import { formatCurrency } from '../utils/format';
 import { getSettlements } from '../utils/storage';
 import guide01 from '/assets/guide01.png';
 import guide02 from '/assets/guide02.png';
+import appStore from '/assets/appStore.png';
 
 // 도움말 모달 컴포넌트 분리
 const GuideModal = ({ show, onClose }) => {
@@ -138,6 +139,18 @@ const HomePage = () => {
         onClick={handleOpenGuide}
       >
         <p>어떤 때에 사용하나요?</p>
+      </button>
+
+      <button
+        className="mt-8 h-auto w-3/4"
+        onClick={() => {
+          window.open(
+            'https://apps.apple.com/kr/app/split-it-%EC%8A%A4%ED%94%8C%EB%A6%BF%EC%9E%87/id6470256280',
+            '_blank'
+          );
+        }}
+      >
+        <img src={appStore} alt="app store" className="w-full" />
       </button>
 
       {/* 도움말 모달 */}
