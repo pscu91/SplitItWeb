@@ -300,6 +300,15 @@ const CreateParticipantsPage = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
+              onBlur={() => {
+                if (
+                  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+                    navigator.userAgent
+                  )
+                ) {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
               placeholder="이름 검색 또는 엔터로 추가"
               className="h-full w-full rounded-lg border px-4 py-4 text-sm focus:border-[#4DB8A9] focus:outline-none focus:ring-0 focus:ring-[#4DB8A9]"
               style={{ minWidth: 120 }}
